@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: ws-face
+  rsocket.server:
+    transport: websocket
+    mapping-path: /rs
+  kafka:
+    bootstrap-servers: ${KAFKA_HOST:localhost}:9092
+    properties:
+      spring:
+        json:
+          trusted:
+            packages: "*"
+  redis:
+    port: 6379
+    host: ${REDIS_HOST:localhost}
