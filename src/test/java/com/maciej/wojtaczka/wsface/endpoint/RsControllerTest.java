@@ -19,7 +19,6 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 import java.net.URI;
-import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -169,7 +168,7 @@ class RsControllerTest {
 							   .build();
 		return OutboundParcel.<Message>builder()
 							 .type(OutboundParcel.Type.MESSAGE)
-							 .receiverId(Set.of(receiver))
+							 .recipients(Set.of(receiver))
 							 .payload(first)
 							 .build();
 	}

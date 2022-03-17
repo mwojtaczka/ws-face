@@ -17,11 +17,8 @@ import java.util.UUID;
 public class OutboundParcel<T> {
 
     Type type;
-	Set<UUID> receiverId;
+	Set<UUID> recipients;
 	T payload;
-
-//    Message messagePayload;
-//    MessageStatus messageStatus;
 
     public enum Type {
         PONG, MESSAGE, MESSAGE_STATUS, NOTIFICATION, TIMELINE_ITEM
