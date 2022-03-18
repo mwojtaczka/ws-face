@@ -1,10 +1,8 @@
 package com.maciej.wojtaczka.wsface.back;
 
-import com.maciej.wojtaczka.wsface.model.OutboundParcel;
+import com.maciej.wojtaczka.wsface.dto.OutboundParcel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
-import org.springframework.data.redis.core.RedisOperations;
-import org.springframework.data.redis.core.RedisTemplate;
 import reactor.core.publisher.Mono;
 
 import java.util.Collection;

@@ -2,8 +2,8 @@ package com.maciej.wojtaczka.wsface.back;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.maciej.wojtaczka.wsface.model.Message;
-import com.maciej.wojtaczka.wsface.model.OutboundParcel;
+import com.maciej.wojtaczka.wsface.dto.InboundParcel;
+import com.maciej.wojtaczka.wsface.dto.OutboundParcel;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.errors.SerializationException;
@@ -40,7 +40,7 @@ public class BackConfig {
 	private static String applicationInstanceName;
 
 	BackConfig(@Value("${spring.application.name}") String appName) {
-		applicationInstanceName = appName + "-" + UUID.randomUUID().toString();
+		applicationInstanceName = appName + "-" + UUID.randomUUID();
 	}
 
 	public static String applicationInstanceName() {
@@ -59,7 +59,7 @@ public class BackConfig {
 	}
 
 	@Bean
-	ReactiveKafkaProducerTemplate<String, Message> reactiveKafkaProducerTemplate(
+	ReactiveKafkaProducerTemplate<String, Object> reactiveKafkaProducerTemplate(
 			KafkaProperties properties) {
 		Map<String, Object> props = properties
 				.buildProducerProperties();
@@ -96,6 +96,13 @@ public class BackConfig {
 		GlobalListener globalListener = new GlobalListener(kafkaConsumer, listenersRegistry);
 		globalListener.listen();
 		return globalListener;
+	}
+
+	@Bean
+	InboundDispatcher inboundDispatcher(ReactiveKafkaProducerTemplate<String, Object> reactiveKafkaProducerTemplate) {
+		Map<InboundParcel.Type, String> topics = Map.of(InboundParcel.Type.MESSAGE, "message-received",
+														 InboundParcel.Type.MESSAGE_STATUS, "message-status-changed");
+		return new InboundDispatcher(reactiveKafkaProducerTemplate, topics);
 	}
 
 	static class KafkaGenericDeserializer<T> implements Deserializer<T> {

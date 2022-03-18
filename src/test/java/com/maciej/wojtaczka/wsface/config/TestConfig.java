@@ -1,6 +1,6 @@
 package com.maciej.wojtaczka.wsface.config;
 
-import com.maciej.wojtaczka.wsface.model.OutboundParcel;
+import com.maciej.wojtaczka.wsface.dto.OutboundParcel;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;

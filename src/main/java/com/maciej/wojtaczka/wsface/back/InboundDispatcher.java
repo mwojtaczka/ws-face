@@ -1,65 +1,72 @@
 package com.maciej.wojtaczka.wsface.back;
 
-import com.maciej.wojtaczka.wsface.model.InboundParcel;
-import com.maciej.wojtaczka.wsface.model.Message;
-import com.maciej.wojtaczka.wsface.model.OutboundParcel;
+import com.maciej.wojtaczka.wsface.dto.InboundParcel;
+import com.maciej.wojtaczka.wsface.dto.OutboundParcel;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
-import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.kafka.sender.SenderRecord;
 
-import static com.maciej.wojtaczka.wsface.model.OutboundParcel.MessageStatus.FAILED;
-import static com.maciej.wojtaczka.wsface.model.OutboundParcel.MessageStatus.SENT;
-import static com.maciej.wojtaczka.wsface.model.OutboundParcel.Type.MESSAGE_STATUS;
-import static com.maciej.wojtaczka.wsface.model.OutboundParcel.Type.PONG;
+import java.util.Map;
+
+import static com.maciej.wojtaczka.wsface.dto.InboundParcel.Type.PING;
+import static com.maciej.wojtaczka.wsface.dto.OutboundParcel.MessageStatus.SENT;
+import static com.maciej.wojtaczka.wsface.dto.OutboundParcel.Type.FAILURE;
+import static com.maciej.wojtaczka.wsface.dto.OutboundParcel.Type.MESSAGE_STATUS;
+import static com.maciej.wojtaczka.wsface.dto.OutboundParcel.Type.PONG;
 
 @Slf4j
-@Component
 public class InboundDispatcher {
 
-	private final ReactiveKafkaProducerTemplate<String, Message> reactiveKafkaProducerTemplate;
+	private final ReactiveKafkaProducerTemplate<String, Object> reactiveKafkaProducerTemplate;
+	private final Map<InboundParcel.Type, String> parcelTypeToTopicMap;
 
-	public InboundDispatcher(ReactiveKafkaProducerTemplate<String, Message> reactiveKafkaProducerTemplate) {
+	public InboundDispatcher(ReactiveKafkaProducerTemplate<String, Object> reactiveKafkaProducerTemplate,
+							 Map<InboundParcel.Type, String> parcelTypeToTopicMap) {
 		this.reactiveKafkaProducerTemplate = reactiveKafkaProducerTemplate;
+		this.parcelTypeToTopicMap = parcelTypeToTopicMap;
 	}
 
-	public Flux<OutboundParcel<?>> dispatch(Flux<InboundParcel> inbound) {
+	public Flux<OutboundParcel<?>> dispatch(Flux<InboundParcel<?>> inbound) {
 
 		return inbound.flatMap(this::dispatchParcel);
 	}
 
-	private Publisher<OutboundParcel<?>> dispatchParcel(InboundParcel parcel) {
-		switch (parcel.getType()) {
-			case MESSAGE:
-				return forwardMessage(parcel);
-			case PING:
-				return Mono.just(OutboundParcel.builder().type(PONG).build());
-			default:
-				throw new RuntimeException("Not supported");
+	private Publisher<OutboundParcel<?>> dispatchParcel(InboundParcel<?> parcel) {
+		if (PING.equals(parcel.getType())) {
+			return Mono.just(OutboundParcel.builder().type(PONG).build());
 		}
+		if (parcel.getType() != null) {
+			return forwardParcel(parcel);
+		}
+		return Mono.just(failure());
 	}
 
-	private Mono<OutboundParcel<?>> forwardMessage(InboundParcel messageParcel) {
-		Message message = messageParcel.getMessagePayload();
-		return reactiveKafkaProducerTemplate.send(SenderRecord.create("message-received", null, null, null, message, message))
+	private Mono<OutboundParcel<?>> forwardParcel(InboundParcel<?> inboundParcel) {
+		String topic = parcelTypeToTopicMap.get(inboundParcel.getType());
+		if (topic == null) {
+			return Mono.just(failure());
+		}
+		return reactiveKafkaProducerTemplate.send(SenderRecord.create(topic, null, null, null, inboundParcel.getPayload(), null))
 											.map(result -> {
 												if (result.exception() == null) {
+													log.debug("Forwarded parcel {} to topic {}", inboundParcel, topic);
 													return OutboundParcel.builder()
 																		 .type(MESSAGE_STATUS)
 																		 .payload(SENT)
 																		 .build();
 												} else {
-													Message failedMessage = result.correlationMetadata();
-													log.warn("Message failed from: {}, for conversation: {}",
-															 failedMessage.getAuthorId(), failedMessage.getConversationId());
-													return OutboundParcel.builder()
-																		 .type(MESSAGE_STATUS)
-																		 .payload(FAILED)
-																		 .build();
+													log.warn("Forwarding parcel of type {} failed", inboundParcel.getType());
+													return failure();
 												}
 											});
+	}
+
+	private OutboundParcel<Object> failure() {
+		return OutboundParcel.builder()
+							 .type(FAILURE)
+							 .build();
 	}
 }

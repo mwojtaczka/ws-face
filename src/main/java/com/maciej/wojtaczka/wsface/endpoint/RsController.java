@@ -3,8 +3,8 @@ package com.maciej.wojtaczka.wsface.endpoint;
 import com.maciej.wojtaczka.wsface.back.ListenersRegistry;
 import com.maciej.wojtaczka.wsface.back.InboundDispatcher;
 import com.maciej.wojtaczka.wsface.back.PersonalListener;
-import com.maciej.wojtaczka.wsface.model.InboundParcel;
-import com.maciej.wojtaczka.wsface.model.OutboundParcel;
+import com.maciej.wojtaczka.wsface.dto.InboundParcel;
+import com.maciej.wojtaczka.wsface.dto.OutboundParcel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -35,14 +35,12 @@ class RsController {
 		Objects.requireNonNull(requester.rsocket(), "rsocket connection should not be null")
 			   .onClose()
 			   .doOnError(error -> log.warn(requester.rsocketClient() + " Closed"))
-			   .doFinally(consumer -> {
-				   log.info(requester.rsocketClient() + " Disconnected");
-			   })
+			   .doFinally(consumer -> log.info(requester.rsocketClient() + " Disconnected"))
 			   .subscribe();
 	}
 
 	@MessageMapping("subscribe")
-	Flux<OutboundParcel<?>> subscribe(Flux<InboundParcel> inboundParcels, @Header String principal) {
+	Flux<OutboundParcel<?>> subscribe(Flux<InboundParcel<?>> inboundParcels, @Header String principal) {
 		Flux<OutboundParcel<?>> results = inboundDispatcher.dispatch(inboundParcels);
 
 		Flux<OutboundParcel<?>> receiveMsgs =

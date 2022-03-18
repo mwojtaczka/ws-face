@@ -1,9 +1,9 @@
 package com.maciej.wojtaczka.wsface.endpoint;
 
 import com.maciej.wojtaczka.wsface.back.BackConfig;
-import com.maciej.wojtaczka.wsface.model.InboundParcel;
+import com.maciej.wojtaczka.wsface.dto.InboundParcel;
 import com.maciej.wojtaczka.wsface.model.Message;
-import com.maciej.wojtaczka.wsface.model.OutboundParcel;
+import com.maciej.wojtaczka.wsface.dto.OutboundParcel;
 import com.maciej.wojtaczka.wsface.utils.KafkaTestListener;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,17 +47,20 @@ class RsControllerTest {
 
 	@Test
 	void shouldForwardMessage() {
+		//given
 		UUID authorId = UUID.randomUUID();
-		InboundParcel firstToSend = getInboundMessageParcel(authorId);
-		InboundParcel secondToSend = getInboundMessageParcel(authorId);
-		InboundParcel thirdToSend = getInboundMessageParcel(authorId);
+		InboundParcel<Message> firstToSend = getInboundMessageParcel(authorId);
+		InboundParcel<Message> secondToSend = getInboundMessageParcel(authorId);
+		InboundParcel<Message> thirdToSend = getInboundMessageParcel(authorId);
 
-		Flux<InboundParcel> toBeSent = Flux.just(firstToSend, secondToSend, thirdToSend);
+		Flux<InboundParcel<Message>> toBeSent = Flux.just(firstToSend, secondToSend, thirdToSend);
 
 		kafkaTestListener.listenToTopic("message-received", 3);
 
 		var dataTypeRef = new ParameterizedTypeReference<OutboundParcel<OutboundParcel.MessageStatus>>() {
 		};
+
+		//when
 		Flux<OutboundParcel<OutboundParcel.MessageStatus>> channel = getRSocketRequester().route("subscribe")
 																						  .metadata(authorId.toString(), MimeTypeUtils.TEXT_PLAIN)
 																						  .data(toBeSent)
@@ -72,19 +75,21 @@ class RsControllerTest {
 		//verify messages forwarded to kafka
 		List<Message> fromTopic = kafkaTestListener.receiveContentFromTopic("message-received", Message.class);
 		assertThat(fromTopic).hasSize(3);
-		assertThat(fromTopic.get(0)).isEqualTo(firstToSend.getMessagePayload());
-		assertThat(fromTopic.get(1)).isEqualTo(secondToSend.getMessagePayload());
-		assertThat(fromTopic.get(2)).isEqualTo(thirdToSend.getMessagePayload());
+		assertThat(fromTopic.get(0)).isEqualTo(firstToSend.getPayload());
+		assertThat(fromTopic.get(1)).isEqualTo(secondToSend.getPayload());
+		assertThat(fromTopic.get(2)).isEqualTo(thirdToSend.getPayload());
 	}
 
 	@Test
 	void shouldRegisterUserListenerInRedis() throws InterruptedException {
+		//given
 		UUID receiverId = UUID.randomUUID();
 		CountDownLatch latch = new CountDownLatch(1);
 
+		//when
 		getRSocketRequester().route("subscribe")
 							 .metadata(receiverId.toString(), MimeTypeUtils.TEXT_PLAIN)
-							 .data(Flux.just(getPingParcel(receiverId)))
+							 .data(Flux.just(getPingParcel()))
 							 .retrieveFlux(OutboundParcel.class)
 							 .subscribe(x -> latch.countDown());
 
@@ -96,12 +101,15 @@ class RsControllerTest {
 
 	@Test
 	void shouldUnregisterUserListenerInRedis_whenChannelCompleted() throws InterruptedException {
+		//given
 		UUID receiverId = UUID.randomUUID();
 		var dataTypeRef = new ParameterizedTypeReference<OutboundParcel<Void>>() {
 		};
+
+		//when
 		Flux<OutboundParcel<Void>> channel = getRSocketRequester().route("subscribe")
 															.metadata(receiverId.toString(), MimeTypeUtils.TEXT_PLAIN)
-															.data(Flux.just(getPingParcel(receiverId)))
+															.data(Flux.just(getPingParcel()))
 															.retrieveFlux(dataTypeRef)
 															.take(1);
 
@@ -131,7 +139,7 @@ class RsControllerTest {
 		//when
 		Flux<OutboundParcel<Message>> subscribe = getRSocketRequester().route("subscribe")
 															  .metadata(receiverId.toString(), MimeTypeUtils.TEXT_PLAIN)
-															  .data(Flux.just(getPingParcel(UUID.randomUUID())))
+															  .data(Flux.just(getPingParcel()))
 															  .retrieveFlux(dataTypeRef)
 															  .take(4);
 		CompletableFuture.runAsync(() -> {
@@ -147,16 +155,15 @@ class RsControllerTest {
 					.verifyComplete();
 	}
 
-	private InboundParcel getInboundMessageParcel(UUID authorId) {
+	private InboundParcel<Message> getInboundMessageParcel(UUID authorId) {
 		Message first = Message.builder()
 							   .authorId(authorId)
 							   .content("Message 1")
 							   .conversationId(UUID.randomUUID())
 							   .build();
-		return InboundParcel.builder()
+		return InboundParcel.<Message>builder()
 							.type(InboundParcel.Type.MESSAGE)
-							.receiverId(authorId)
-							.messagePayload(first)
+							.payload(first)
 							.build();
 	}
 
@@ -173,10 +180,9 @@ class RsControllerTest {
 							 .build();
 	}
 
-	private InboundParcel getPingParcel(UUID authorId) {
-		return InboundParcel.builder()
+	private InboundParcel<Void> getPingParcel() {
+		return InboundParcel.<Void>builder()
 							.type(InboundParcel.Type.PING)
-							.receiverId(authorId)
 							.build();
 	}
 
