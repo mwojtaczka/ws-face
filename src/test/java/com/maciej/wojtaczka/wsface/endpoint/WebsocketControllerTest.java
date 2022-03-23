@@ -1,24 +1,22 @@
 package com.maciej.wojtaczka.wsface.endpoint;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.maciej.wojtaczka.wsface.back.BackConfig;
 import com.maciej.wojtaczka.wsface.dto.InboundParcel;
 import com.maciej.wojtaczka.wsface.model.Message;
 import com.maciej.wojtaczka.wsface.dto.OutboundParcel;
 import com.maciej.wojtaczka.wsface.utils.KafkaTestListener;
+import com.maciej.wojtaczka.wsface.utils.TestWsClient;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.test.context.EmbeddedKafka;
-import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.util.MimeTypeUtils;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
-import java.net.URI;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -31,10 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 @EmbeddedKafka(partitions = 1, brokerProperties = { "listeners=PLAINTEXT://localhost:9092", "port=9092" })
 @DirtiesContext
-class RsControllerTest {
-
-	@Autowired
-	private RSocketRequester.Builder builder;
+class WebsocketControllerTest {
 
 	@Autowired
 	private KafkaTestListener kafkaTestListener;
@@ -44,6 +39,9 @@ class RsControllerTest {
 
 	@Autowired
 	private KafkaTemplate<String, OutboundParcel<?>> kafkaTemplate;
+
+	@Autowired
+	private TestWsClient wsClient;
 
 	@Test
 	void shouldForwardMessage() {
@@ -57,15 +55,11 @@ class RsControllerTest {
 
 		kafkaTestListener.listenToTopic("message-received", 3);
 
-		var dataTypeRef = new ParameterizedTypeReference<OutboundParcel<OutboundParcel.MessageStatus>>() {
+		var dataTypeRef = new TypeReference<OutboundParcel<OutboundParcel.MessageStatus>>() {
 		};
 
 		//when
-		Flux<OutboundParcel<OutboundParcel.MessageStatus>> channel = getRSocketRequester().route("subscribe")
-																						  .metadata(authorId.toString(), MimeTypeUtils.TEXT_PLAIN)
-																						  .data(toBeSent)
-																						  .retrieveFlux(dataTypeRef)
-																						  .take(3);
+		Flux<OutboundParcel<OutboundParcel.MessageStatus>> channel = wsClient.send(toBeSent, authorId.toString(), dataTypeRef, 3);
 
 		//verify each message successfully sent
 		StepVerifier.create(channel)
@@ -86,12 +80,12 @@ class RsControllerTest {
 		UUID receiverId = UUID.randomUUID();
 		CountDownLatch latch = new CountDownLatch(1);
 
+		var dataTypeRef = new TypeReference<OutboundParcel<Object>>() {
+		};
+
 		//when
-		getRSocketRequester().route("subscribe")
-							 .metadata(receiverId.toString(), MimeTypeUtils.TEXT_PLAIN)
-							 .data(Flux.just(getPingParcel()))
-							 .retrieveFlux(OutboundParcel.class)
-							 .subscribe(x -> latch.countDown());
+		wsClient.send(Flux.just(getPingParcel()), receiverId.toString(), dataTypeRef, x -> latch.countDown())
+				.subscribe();
 
 		//verify redis registration
 		latch.await();
@@ -103,17 +97,13 @@ class RsControllerTest {
 	void shouldUnregisterUserListenerInRedis_whenChannelCompleted() throws InterruptedException {
 		//given
 		UUID receiverId = UUID.randomUUID();
-		var dataTypeRef = new ParameterizedTypeReference<OutboundParcel<Void>>() {
+		var dataTypeRef = new TypeReference<OutboundParcel<Void>>() {
 		};
 
 		//when
-		Flux<OutboundParcel<Void>> channel = getRSocketRequester().route("subscribe")
-															.metadata(receiverId.toString(), MimeTypeUtils.TEXT_PLAIN)
-															.data(Flux.just(getPingParcel()))
-															.retrieveFlux(dataTypeRef)
-															.take(1);
+		Flux<OutboundParcel<Void>> channel = wsClient.send(Flux.just(getPingParcel()), receiverId.toString(), dataTypeRef, 1);
 
-		//verify pong response and completed channel
+//		verify pong response and completed channel
 		StepVerifier.create(channel)
 					.expectNext(pong())
 					.verifyComplete();
@@ -133,15 +123,12 @@ class RsControllerTest {
 		OutboundParcel<Message> third = getOutboundMessageParcel(receiverId);
 
 		String topic = BackConfig.applicationInstanceName();
-		var dataTypeRef = new ParameterizedTypeReference<OutboundParcel<Message>>() {
+		var dataTypeRef = new TypeReference<OutboundParcel<Message>>() {
 		};
 
 		//when
-		Flux<OutboundParcel<Message>> subscribe = getRSocketRequester().route("subscribe")
-															  .metadata(receiverId.toString(), MimeTypeUtils.TEXT_PLAIN)
-															  .data(Flux.just(getPingParcel()))
-															  .retrieveFlux(dataTypeRef)
-															  .take(4);
+		Flux<OutboundParcel<Message>> subscribe = wsClient.send(Flux.just(getPingParcel()), receiverId.toString(), dataTypeRef, 4);
+
 		CompletableFuture.runAsync(() -> {
 			kafkaTemplate.send(topic, first);
 			kafkaTemplate.send(topic, second);
@@ -197,11 +184,6 @@ class RsControllerTest {
 		return OutboundParcel.<Void>builder()
 							 .type(OutboundParcel.Type.PONG)
 							 .build();
-	}
-
-	public RSocketRequester getRSocketRequester() {
-		return builder
-				.websocket(URI.create("ws://localhost:8080/rs"));
 	}
 
 }

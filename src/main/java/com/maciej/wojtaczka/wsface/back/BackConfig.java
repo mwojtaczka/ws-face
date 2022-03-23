@@ -47,17 +47,6 @@ public class BackConfig {
 		return applicationInstanceName;
 	}
 
-	@Autowired
-	public void rsocketMessageHandler(RSocketMessageHandler handler) {
-		handler.setRouteMatcher(new PathPatternRouteMatcher());
-
-		List<Decoder<?>> decoders = new ArrayList<>(handler.getDecoders());
-
-		DefaultMetadataExtractor extractor = new DefaultMetadataExtractor(decoders);
-		extractor.metadataToExtract(MimeTypeUtils.TEXT_PLAIN, String.class, "principal");
-		handler.setMetadataExtractor(extractor);
-	}
-
 	@Bean
 	ReactiveKafkaProducerTemplate<String, Object> reactiveKafkaProducerTemplate(
 			KafkaProperties properties) {

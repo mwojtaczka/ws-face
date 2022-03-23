@@ -27,7 +27,6 @@ public class ListenersRegistry {
 	}
 
 	public Mono<Void> register(PersonalListener<OutboundParcel<?>> listener) {
-
 		return redisTemplate.opsForValue().set(listener.getOwnerID().toString(), appInstanceName)
 							.doOnNext(b -> {
 								if (b) {
@@ -41,11 +40,16 @@ public class ListenersRegistry {
 	}
 
 	public Mono<Void> unregister(UUID ownerId) {
-		log.info("Listener for user: {} unregistered in app: {}", ownerId, appInstanceName);
-
 		inMemoryRegistry.remove(ownerId);
 
 		return redisTemplate.opsForValue().delete(ownerId.toString())
+				.doOnNext(b -> {
+					if (b) {
+						log.info("Listener for user: {} unregistered in app: {}", ownerId, appInstanceName);
+					} else {
+						log.error("Listener for user: {} *COULD NOT BE* unregistered in app: {}", ownerId, appInstanceName);
+					}
+				})
 							.flatMap(b -> Mono.empty());
 	}
 
