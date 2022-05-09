@@ -1,9 +1,6 @@
 spring:
   application:
     name: ws-face
-  rsocket.server:
-    transport: websocket
-    mapping-path: /rs
   kafka:
     bootstrap-servers: ${KAFKA_HOST:localhost}:9092
     properties:
