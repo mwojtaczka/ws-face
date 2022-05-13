@@ -20,7 +20,7 @@ class GlobalListener {
         kafkaConsumer
                 .receive()
                 .map(ConsumerRecord::value)
-				.onErrorContinue((throwable, o) -> log.error(throwable.getMessage()))
+				.onErrorContinue((throwable, o) -> log.error("Error during listening: " + throwable.getMessage()))
                 .subscribe(this::push);
     }
 

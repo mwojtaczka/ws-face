@@ -15,11 +15,18 @@ public class OutboundParcel<T> {
 	T payload;
 
     public enum Type {
-        PONG, MESSAGE, MESSAGE_STATUS, NOTIFICATION, TIMELINE_ITEM, FAILURE
+        PONG,
+		STATUS,
+		MESSAGE,
+		MESSAGE_STATUS,
+		CONNECTION_REQUESTED,
+		CONNECTION_CREATED,
+		GENERIC,
+		ANNOUNCEMENT
     }
 
-    public enum MessageStatus {
-        SENT, DELIVERED, READ, FAILED
+    public enum Status {
+        SENT, FAILED
     }
 
 }

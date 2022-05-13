@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.maciej.wojtaczka.wsface.dto.InboundParcel;
 import com.maciej.wojtaczka.wsface.dto.OutboundParcel;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.errors.SerializationException;
@@ -27,12 +28,14 @@ import java.util.Map;
 import java.util.UUID;
 
 @Configuration
+@Slf4j
 public class BackConfig {
 
 	private static String applicationInstanceName;
 
 	BackConfig(@Value("${spring.application.name}") String appName) {
 		applicationInstanceName = appName + "-" + UUID.randomUUID();
+		log.info("Instance name: {}", applicationInstanceName);
 	}
 
 	public static String applicationInstanceName() {

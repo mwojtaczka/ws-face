@@ -12,10 +12,10 @@ import reactor.kafka.sender.SenderRecord;
 import java.util.Map;
 
 import static com.maciej.wojtaczka.wsface.dto.InboundParcel.Type.PING;
-import static com.maciej.wojtaczka.wsface.dto.OutboundParcel.MessageStatus.SENT;
-import static com.maciej.wojtaczka.wsface.dto.OutboundParcel.Type.FAILURE;
-import static com.maciej.wojtaczka.wsface.dto.OutboundParcel.Type.MESSAGE_STATUS;
+import static com.maciej.wojtaczka.wsface.dto.OutboundParcel.Status.FAILED;
+import static com.maciej.wojtaczka.wsface.dto.OutboundParcel.Status.SENT;
 import static com.maciej.wojtaczka.wsface.dto.OutboundParcel.Type.PONG;
+import static com.maciej.wojtaczka.wsface.dto.OutboundParcel.Type.STATUS;
 
 @Slf4j
 public class InboundDispatcher {
@@ -54,7 +54,7 @@ public class InboundDispatcher {
 												if (result.exception() == null) {
 													log.debug("Forwarded parcel {} to topic {}", inboundParcel, topic);
 													return OutboundParcel.builder()
-																		 .type(MESSAGE_STATUS)
+																		 .type(STATUS)
 																		 .payload(SENT)
 																		 .build();
 												} else {
@@ -66,7 +66,8 @@ public class InboundDispatcher {
 
 	private OutboundParcel<Object> failure() {
 		return OutboundParcel.builder()
-							 .type(FAILURE)
+							 .type(STATUS)
+							 .payload(FAILED)
 							 .build();
 	}
 }

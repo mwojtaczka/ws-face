@@ -55,11 +55,11 @@ class WebsocketControllerTest {
 
 		kafkaTestListener.listenToTopic("message-received", 3);
 
-		var dataTypeRef = new TypeReference<OutboundParcel<OutboundParcel.MessageStatus>>() {
+		var dataTypeRef = new TypeReference<OutboundParcel<OutboundParcel.Status>>() {
 		};
 
 		//when
-		Flux<OutboundParcel<OutboundParcel.MessageStatus>> channel = wsClient.send(toBeSent, authorId.toString(), dataTypeRef, 3);
+		Flux<OutboundParcel<OutboundParcel.Status>> channel = wsClient.send(toBeSent, authorId.toString(), dataTypeRef, 3);
 
 		//verify each message successfully sent
 		StepVerifier.create(channel)
@@ -103,7 +103,7 @@ class WebsocketControllerTest {
 		//when
 		Flux<OutboundParcel<Void>> channel = wsClient.send(Flux.just(getPingParcel()), receiverId.toString(), dataTypeRef, 1);
 
-//		verify pong response and completed channel
+		//verify pong response and completed channel
 		StepVerifier.create(channel)
 					.expectNext(pong())
 					.verifyComplete();
@@ -173,10 +173,10 @@ class WebsocketControllerTest {
 							.build();
 	}
 
-	private OutboundParcel<OutboundParcel.MessageStatus> sentStatus() {
-		return OutboundParcel.<OutboundParcel.MessageStatus>builder()
-							 .type(OutboundParcel.Type.MESSAGE_STATUS)
-							 .payload(OutboundParcel.MessageStatus.SENT)
+	private OutboundParcel<OutboundParcel.Status> sentStatus() {
+		return OutboundParcel.<OutboundParcel.Status>builder()
+							 .type(OutboundParcel.Type.STATUS)
+							 .payload(OutboundParcel.Status.SENT)
 							 .build();
 	}
 
